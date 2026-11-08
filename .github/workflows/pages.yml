@@ -1,0 +1,82 @@
+name: Publish website
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Build the site
+        run: |
+          newest=$(for f in index*.html; do echo "$(git log -1 --format=%ct -- "$f") $f"; done | sort -n | tail -1 | cut -d' ' -f2-)
+          echo "Using: $newest"
+          mkdir -p _site
+          cp "$newest" _site/index.html
+          touch _site/.nojekyll
+          python3 -c "import PIL" 2>/dev/null || python3 -m pip install --break-system-packages pillow
+          python3 - <<'PY'
+          import json
+          from PIL import Image
+          icon = Image.open('icon.png').convert('RGBA')
+          for size in (192, 512):
+              icon.resize((size, size), Image.LANCZOS).save('_site/icon-%d.png' % size)
+          icon.resize((180, 180), Image.LANCZOS).save('_site/apple-touch-icon.png')
+          manifest = {
+              'name': 'Reformat Paradox',
+              'short_name': 'Reformat',
+              'description': 'Convert images, scan text and make PDFs on your own device.',
+              'start_url': './',
+              'scope': './',
+              'display': 'standalone',
+              'background_color': '#2b45e8',
+              'theme_color': '#2b45e8',
+              'icons': [
+                  {'src': 'icon-192.png', 'sizes': '192x192', 'type': 'image/png', 'purpose': 'any'},
+                  {'src': 'icon-512.png', 'sizes': '512x512', 'type': 'image/png', 'purpose': 'any'}
+              ]
+          }
+          open('_site/manifest.webmanifest', 'w').write(json.dumps(manifest))
+          sw = """const C = 'reformat-paradox-v1';
+          self.addEventListener('install', e => { self.skipWaiting(); e.waitUntil(caches.open(C).then(c => c.addAll(['./', 'index.html', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png']))); });
+          self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(k => Promise.all(k.filter(x => x !== C).map(x => caches.delete(x)))).then(() => self.clients.claim())); });
+          self.addEventListener('fetch', e => {
+            if (e.request.method !== 'GET') return;
+            e.respondWith(fetch(e.request).then(r => { const copy = r.clone(); caches.open(C).then(c => c.put(e.request, copy)).catch(() => {}); return r; })
+              .catch(() => caches.match(e.request).then(m => m || caches.match('index.html'))));
+          });
+          """
+          open('_site/sw.js', 'w').write(sw)
+          html = open('_site/index.html', encoding='utf-8').read()
+          head = '<link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="apple-touch-icon.png"><meta name="theme-color" content="#2b45e8">'
+          reg = "<script>if ('serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('sw.js'));</script>"
+          html = html.replace('</head>', head + '</head>', 1).replace('</body>', reg + '</body>', 1)
+          open('_site/index.html', 'w', encoding='utf-8').write(html)
+          PY
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - id: deployment
+        uses: actions/deploy-pages@v4
