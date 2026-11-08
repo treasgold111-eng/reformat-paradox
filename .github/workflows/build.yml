@@ -9,7 +9,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     env:
-      ADMOB_APP_ID: ${{ vars.ADMOB_APP_ID || 'ca-app-pub-3940256099942544~3347511713' }}
+      ADMOB_APP_ID: ${{ vars.ADMOB_APP_ID || 'ca-app-pub-5561137494743513~5362751625' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -25,7 +25,7 @@ jobs:
       - name: Put the web app in www
         run: |
           mkdir -p www
-          cp index.html www/index.html
+          cp index-1.html www/index.html
 
       - name: Install
         run: npm install
@@ -42,6 +42,23 @@ jobs:
           tag = '<meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="%s"/>' % os.environ['ADMOB_APP_ID']
           s = re.sub(r'(<application[^>]*>)', lambda m: m.group(1) + '\n        ' + tag, s, count=1)
           open(p, 'w', encoding='utf-8').write(s)
+          PY
+
+      - name: Use my app icon
+        run: |
+          python3 -c "import PIL" 2>/dev/null || python3 -m pip install --break-system-packages pillow
+          python3 - <<'PY'
+          import os, shutil
+          from PIL import Image
+          res = 'android/app/src/main/res'
+          shutil.rmtree(res + '/mipmap-anydpi-v26', ignore_errors=True)
+          icon = Image.open('icon.png').convert('RGBA')
+          for d, px in {'mdpi': 48, 'hdpi': 72, 'xhdpi': 96, 'xxhdpi': 144, 'xxxhdpi': 192}.items():
+              folder = res + '/mipmap-' + d
+              os.makedirs(folder, exist_ok=True)
+              small = icon.resize((px, px), Image.LANCZOS)
+              small.save(folder + '/ic_launcher.png')
+              small.save(folder + '/ic_launcher_round.png')
           PY
 
       - name: Sync
