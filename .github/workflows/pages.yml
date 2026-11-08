@@ -31,6 +31,7 @@ jobs:
           echo "Using: $newest"
           mkdir -p _site
           cp "$newest" _site/index.html
+          if [ -f privacy.htm ]; then cp privacy.htm _site/privacy.html; fi
           touch _site/.nojekyll
           python3 -c "import PIL" 2>/dev/null || python3 -m pip install --break-system-packages pillow
           python3 - <<'PY'
@@ -79,4 +80,4 @@ jobs:
           path: _site
 
       - id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v4￼Enter
