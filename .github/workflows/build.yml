@@ -12,6 +12,8 @@ jobs:
       ADMOB_APP_ID: ${{ vars.ADMOB_APP_ID || 'ca-app-pub-5561137494743513~5362751625' }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
@@ -24,8 +26,10 @@ jobs:
 
       - name: Put the web app in www
         run: |
+          newest=$(for f in *.html; do echo "$(git log -1 --format=%ct -- "$f") $f"; done | sort -n | tail -1 | cut -d' ' -f2-)
+          echo "Using: $newest"
           mkdir -p www
-          cp index-1.html www/index.html
+          cp "$newest" www/index.html
 
       - name: Install
         run: npm install
