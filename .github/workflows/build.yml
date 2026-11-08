@@ -1,0 +1,117 @@
+name: Build Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, master]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      ADMOB_APP_ID: ${{ vars.ADMOB_APP_ID || 'ca-app-pub-3940256099942544~3347511713' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Put the web app in www
+        run: |
+          mkdir -p www
+          cp index.html www/index.html
+
+      - name: Install
+        run: npm install
+
+      - name: Create the Android project
+        run: npx cap add android
+
+      - name: Add the AdMob app ID to the manifest
+        run: |
+          python3 - <<'PY'
+          import os, re
+          p = 'android/app/src/main/AndroidManifest.xml'
+          s = open(p, encoding='utf-8').read()
+          tag = '<meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="%s"/>' % os.environ['ADMOB_APP_ID']
+          s = re.sub(r'(<application[^>]*>)', lambda m: m.group(1) + '\n        ' + tag, s, count=1)
+          open(p, 'w', encoding='utf-8').write(s)
+          PY
+
+      - name: Sync
+        run: npx cap sync android
+
+      - name: Build the APK
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ReformatParadox-APK
+          path: android/app/build/outputs/apk/debug/app-debug.apkname: Build Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, master]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      ADMOB_APP_ID: ${{ vars.ADMOB_APP_ID || 'ca-app-pub-3940256099942544~3347511713' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Put the web app in www
+        run: |
+          mkdir -p www
+          cp index.html www/index.html
+
+      - name: Install
+        run: npm install
+
+      - name: Create the Android project
+        run: npx cap add android
+
+      - name: Add the AdMob app ID to the manifest
+        run: |
+          python3 - <<'PY'
+          import os, re
+          p = 'android/app/src/main/AndroidManifest.xml'
+          s = open(p, encoding='utf-8').read()
+          tag = '<meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="%s"/>' % os.environ['ADMOB_APP_ID']
+          s = re.sub(r'(<application[^>]*>)', lambda m: m.group(1) + '\n        ' + tag, s, count=1)
+          open(p, 'w', encoding='utf-8').write(s)
+          PY
+
+      - name: Sync
+        run: npx cap sync android
+
+      - name: Build the APK
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ReformatParadox-APK
+          path: android/app/build/outputs/apk/debug/app-debug.ap￼Enter
